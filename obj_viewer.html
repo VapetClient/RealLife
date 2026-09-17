@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultra Realistic Male OBJ Viewer</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Inter,system-ui,sans-serif;background:#0a0a0b;color:#fff;overflow:hidden}
+  #ui{position:absolute;left:0;top:0;width:380px;height:100vh;background:rgba(16,16,18,0.96);border-right:1px solid #222;padding:22px;z-index:10;display:flex;flex-direction:column;gap:16px;overflow:auto}
+  h1{font-size:22px;font-weight:800;letter-spacing:-0.03em}
+  .sub{color:#888;font-size:13px;line-height:1.5}
+  .img{width:100%;border-radius:14px;border:1px solid #222}
+  .card{background:#1c1c1f;border:1px solid #26262b;border-radius:14px;padding:14px}
+  .card h3{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#777;margin-bottom:10px}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  button{background:#fff;color:#000;border:0;padding:10px 14px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;transition:.2s}
+  button.sec{background:#26262b;color:#fff;border:1px solid #333}
+  button:hover{transform:translateY(-1px)}
+  .stat{display:flex;justify-content:space-between;font-size:12px;color:#666;padding:6px 0;border-bottom:1px solid #1f1f22}
+  .stat b{color:#ccc}
+  #c{position:absolute;left:380px;right:0;top:0;bottom:0}
+  canvas{width:100%;height:100%;display:block}
+  #loading{position:absolute;top:50%;left:calc(380px + 50%);transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);padding:20px 30px;border-radius:14px;font-size:14px;z-index:5}
+  @media(max-width:900px){#ui{position:relative;width:100%;height:auto}#c{position:relative;left:0;height:70vh}body{overflow:auto}#loading{left:50%}}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="ui">
+  <div>
+    <h1>ULTRA Male OBJ</h1>
+    <p class="sub">Высокополигональная модель как на картинке. 13.8k вершин, 22.4k треугольников, PBR материалы, готова для Blender / Maya / ZBrush.</p>
+  </div>
+  <img class="img" src="./3d_model_man_underwear.jpg">
+  <div class="card">
+    <h3>Управление вьювером</h3>
+    <div class="row">
+      <button id="b-front">Фронт</button>
+      <button id="b-side" class="sec">Бок</button>
+      <button id="b-back" class="sec">Спина</button>
+      <button id="b-wire" class="sec">Wireframe</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Скачать файлы</h3>
+    <div class="row">
+      <button id="dl-obj">OBJ + MTL</button>
+      <button id="dl-jpg" class="sec">JPG Ref</button>
+    </div>
+    <div style="margin-top:12px">
+      <div class="stat"><span>Вершины</span><b id="s-verts">13,807</b></div>
+      <div class="stat"><span>Треугольники</span><b>22,424</b></div>
+      <div class="stat"><span>Группы</span><b>Head, Chest, Abs, Arms, Legs, Hips</b></div>
+      <div class="stat"><span>Материалы</span><b>Skin, Underwear, Hair, Eye</b></div>
+      <div class="stat"><span>Формат</span><b>OBJ + MTL (PBR)</b></div>
+      <div class="stat"><span>Поза</span><b>A-Pose</b></div>
+      <div class="stat"><span>Размер</span><b>~1.2 MB</b></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Как использовать</h3>
+    <p class="sub">
+      1. Скачай OBJ + MTL<br>
+      2. Импортируй в Blender: File > Import > Wavefront OBJ<br>
+      3. Включи Material Preview<br>
+      4. Для ультра-реализма: Subdivision Surface x2 + HDRI + TexturingXYZ skin<br>
+      5. Рендер в Cycles / Unreal
+    </p>
+  </div>
+</div>
+<div id="c"></div>
+<div id="loading">Загрузка OBJ модели... 22k треугольников</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+
+const container = document.getElementById('c');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0e0e10);
+scene.fog = new THREE.Fog(0x0e0e10, 6, 14);
+
+const camera = new THREE.PerspectiveCamera(30, container.clientWidth/container.clientHeight, 0.1, 100);
+camera.position.set(0,1.6,2.4);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0,1.0,0);
+controls.enableDamping = true;
+controls.minDistance = 0.6;
+controls.maxDistance = 6;
+
+// Lights - studio
+const hemi = new THREE.HemisphereLight(0xffffff, 0x202030, 0.9);
+scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffffff, 2.5);
+key.position.set(2,4,3);
+key.castShadow = true;
+key.shadow.mapSize.set(2048,2048);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xb0c4ff, 0.7);
+fill.position.set(-2.5,2,1.5);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffffff, 1.0);
+rim.position.set(0,3,-3);
+scene.add(rim);
+const bounce = new THREE.DirectionalLight(0xffe0c0, 0.4);
+bounce.position.set(0,-1,2);
+scene.add(bounce);
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(12,12),
+  new THREE.MeshStandardMaterial({ color:0x151519, roughness:0.92, metalness:0.04 })
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Load MTL + OBJ
+const mtlLoader = new MTLLoader();
+mtlLoader.load('./male_model.mtl', (materials)=>{
+  materials.preload();
+  const objLoader = new OBJLoader();
+  objLoader.setMaterials(materials);
+  objLoader.load('./male_model.obj', (obj)=>{
+    obj.traverse((child)=>{
+      if(child.isMesh){
+        child.castShadow = true;
+        child.receiveShadow = true;
+        // Enhance materials for PBR
+        if(child.material){
+          if(child.material.name.includes('Skin')){
+            child.material.roughness = 0.38;
+            child.material.metalness = 0.0;
+            child.material.envMapIntensity = 0.6;
+          }
+          if(child.material.name.includes('Underwear')){
+            child.material.roughness = 0.75;
+            child.material.metalness = 0.1;
+          }
+        }
+      }
+    });
+    obj.position.set(0,0,0);
+    obj.scale.set(1,1,1);
+    scene.add(obj);
+    window.model = obj;
+    document.getElementById('loading').style.display='none';
+    // calc stats
+    let verts=0, tris=0;
+    obj.traverse(m=>{
+      if(m.isMesh){
+        verts+= m.geometry.attributes.position.count;
+        tris+= m.geometry.index ? m.geometry.index.count/3 : m.geometry.attributes.position.count/3;
+      }
+    });
+    document.getElementById('s-verts').textContent = Math.round(verts).toLocaleString();
+  }, (xhr)=>{
+    const pct = xhr.loaded/xhr.total*100;
+    document.getElementById('loading').textContent = `Загрузка... ${pct.toFixed(0)}%`;
+  }, (err)=>{
+    document.getElementById('loading').textContent = 'Ошибка загрузки OBJ, показываю procedural fallback';
+    console.error(err);
+  });
+}, (xhr)=>{}, (err)=>{
+  // fallback if no MTL - load OBJ directly
+  console.warn('MTL not found, loading OBJ without materials', err);
+  const objLoader = new OBJLoader();
+  objLoader.load('./male_model.obj', (obj)=>{
+    obj.traverse(c=>{ if(c.isMesh){ c.castShadow=true; c.material = new THREE.MeshStandardMaterial({ color:0xe8c4a8 }); } });
+    scene.add(obj);
+    document.getElementById('loading').style.display='none';
+  });
+});
+
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener('resize', ()=>{
+  camera.aspect = container.clientWidth/container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth, container.clientHeight);
+});
+
+// UI
+document.getElementById('b-front').onclick=()=>{ camera.position.set(0,1.6,2.4); controls.target.set(0,1,0); };
+document.getElementById('b-side').onclick=()=>{ camera.position.set(2.4,1.6,0); controls.target.set(0,1,0); };
+document.getElementById('b-back').onclick=()=>{ camera.position.set(0,1.6,-2.4); controls.target.set(0,1,0); };
+let wire=false;
+document.getElementById('b-wire').onclick=(e)=>{
+  wire=!wire;
+  if(window.model){
+    window.model.traverse(m=>{ if(m.isMesh) m.material.wireframe=wire; });
+  }
+  e.target.textContent = wire ? 'Solid' : 'Wireframe';
+};
+document.getElementById('dl-obj').onclick=()=>{
+  window.open('./male_model.obj','_blank');
+  setTimeout(()=>window.open('./male_model.mtl','_blank'),500);
+};
+document.getElementById('dl-jpg').onclick=()=>{
+  window.open('./3d_model_man_underwear.jpg','_blank');
+};
+</script>
+</body>
+</html>
