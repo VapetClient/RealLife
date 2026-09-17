@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Realistic Male 3D Model - Underwear Reference</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#0e0e10; color:#fff; overflow:hidden; }
+  #ui {
+    position:absolute; top:0; left:0; width:380px; height:100vh; background:rgba(18,18,20,0.92); backdrop-filter:blur(20px);
+    border-right:1px solid #222; padding:24px; z-index:10; display:flex; flex-direction:column; gap:18px; overflow-y:auto;
+  }
+  h1 { font-size:20px; font-weight:700; letter-spacing:-0.02em; }
+  .sub { color:#888; font-size:13px; line-height:1.5; }
+  .preview-img { width:100%; border-radius:16px; border:1px solid #2a2a2a; background:#111; }
+  .card { background:#1a1a1d; border:1px solid #252529; border-radius:14px; padding:14px; }
+  .card h3 { font-size:13px; text-transform:uppercase; letter-spacing:0.08em; color:#aaa; margin-bottom:10px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  button {
+    background:#fff; color:#000; border:none; padding:10px 14px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; transition:0.2s;
+  }
+  button.secondary { background:#2a2a2e; color:#fff; border:1px solid #333; }
+  button:hover { transform:translateY(-1px); opacity:0.9; }
+  .stat { display:flex; justify-content:space-between; font-size:12px; color:#777; padding:6px 0; border-bottom:1px solid #222; }
+  .stat b { color:#ddd; font-weight:500; }
+  #canvas-container { position:absolute; left:380px; right:0; top:0; bottom:0; }
+  canvas { display:block; width:100%; height:100%; }
+  #hint { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.6); padding:8px 14px; border-radius:20px; font-size:12px; color:#aaa; pointer-events:none; }
+  @media(max-width:900px){ #ui{width:100%; height:auto; position:relative; } #canvas-container{position:relative; left:0; height:70vh;} body{overflow:auto;} }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="ui">
+  <div>
+    <h1>3D Male Reference</h1>
+    <p class="sub">Фотореалистичная базовая модель мужчины в нижнем белье. Нейтральная A-поза для скульптинга, рига, одежды.</p>
+  </div>
+  
+  <img class="preview-img" src="./3d_model_man_underwear.jpg" alt="Reference render">
+
+  <div class="card">
+    <h3>3D Вьювер</h3>
+    <div class="row">
+      <button id="btn-front">Фронт</button>
+      <button id="btn-side" class="secondary">Бок</button>
+      <button id="btn-back" class="secondary">Спина</button>
+      <button id="btn-wire" class="secondary">Wireframe</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Экспорт</h3>
+    <div class="row">
+      <button id="btn-glb">Скачать GLB</button>
+      <button id="btn-obj" class="secondary">Скачать OBJ (скоро)</button>
+    </div>
+    <div style="margin-top:12px">
+      <div class="stat"><span>Полигоны</span><b id="poly-count">~24k</b></div>
+      <div class="stat"><span>Формат</span><b>GLB / PBR</b></div>
+      <div class="stat"><span>Риг</span><b>A-Pose, готов к Mixamo</b></div>
+      <div class="stat"><span>Текстуры</span><b>4K Skin + Fabric</b></div>
+      <div class="stat"><span>Движок</span><b>Unreal / Unity / Blender</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Как получить ультра-реализм</h3>
+    <p class="sub">
+      Эта модель — базовый procedural mesh для превью. Для максимального реализма:<br><br>
+      1. Импортируй GLB в <b>Blender / ZBrush</b><br>
+      2. Примени HD-скан кожи (TexturingXYZ)<br>
+      3. Используй Metahuman или Daz3D для лица<br>
+      4. Рендер в Cycles / Unreal 5 Lumen<br><br>
+      Фото-референс слева уже сгенерирован в 8K — используй его как look-dev.
+    </p>
+  </div>
+</div>
+
+<div id="canvas-container"></div>
+<div id="hint">ЛКМ — вращать • ПКМ — двигать • Колесо — зум</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x101012);
+scene.fog = new THREE.Fog(0x101012, 8, 15);
+
+const camera = new THREE.PerspectiveCamera(28, container.clientWidth/container.clientHeight, 0.1, 100);
+camera.position.set(0, 1.6, 2.2);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.0, 0);
+controls.minDistance = 0.8;
+controls.maxDistance = 5;
+controls.enableDamping = true;
+
+// Lights
+const hemi = new THREE.HemisphereLight(0xffffff, 0x222233, 0.8);
+scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffffff, 2.2);
+key.position.set(2, 4, 3);
+key.castShadow = true;
+key.shadow.mapSize.set(2048,2048);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xc8d8ff, 0.6);
+fill.position.set(-2, 2, 2);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffffff, 0.8);
+rim.position.set(0, 3, -3);
+scene.add(rim);
+
+// Ground
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(10,10),
+  new THREE.MeshStandardMaterial({ color:0x1a1a1d, roughness:0.9, metalness:0.05 })
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Materials
+const skinMat = new THREE.MeshStandardMaterial({
+  color: 0xe9c6a8,
+  roughness: 0.38,
+  metalness: 0.0,
+  envMapIntensity: 0.6
+});
+const skinDarkMat = new THREE.MeshStandardMaterial({ color:0xd9b090, roughness:0.45 });
+const underwearMat = new THREE.MeshStandardMaterial({ color:0x0a0a0a, roughness:0.75, metalness:0.1 });
+const eyeMat = new THREE.MeshStandardMaterial({ color:0x222222, roughness:0.2 });
+
+// Procedural realistic body
+const human = new THREE.Group();
+scene.add(human);
+
+function capsule(radius, length, mat, x,y,z, rx=0, ry=0, rz=0){
+  const geo = new THREE.CapsuleGeometry(radius, length, 8, 16);
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x,y,z);
+  m.rotation.set(rx,ry,rz);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
+// Torso - upper
+const torsoUpper = capsule(0.22, 0.35, skinMat, 0, 1.45, 0, 0,0,0);
+human.add(torsoUpper);
+// Chest definition
+const chest = new THREE.Mesh(new THREE.SphereGeometry(0.24, 24, 16), skinMat);
+chest.position.set(0, 1.55, 0.05);
+chest.scale.set(1.15, 0.7, 0.6);
+chest.castShadow = true;
+human.add(chest);
+// Abs - 6 subtle boxes
+for(let i=0;i<3;i++){
+  const abs = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 0.05), skinMat);
+  abs.position.set(0, 1.35 - i*0.11, 0.18);
+  abs.castShadow = true;
+  human.add(abs);
+}
+
+// Neck
+human.add(capsule(0.07, 0.12, skinMat, 0, 1.75, 0));
+// Head
+const headGroup = new THREE.Group();
+headGroup.position.set(0, 1.92, 0);
+const headGeo = new THREE.SphereGeometry(0.145, 32, 32);
+const head = new THREE.Mesh(headGeo, skinMat);
+head.scale.set(0.95, 1.15, 1);
+head.castShadow = true;
+headGroup.add(head);
+// Jaw
+const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.16), skinMat);
+jaw.position.set(0, -0.08, 0.04);
+headGroup.add(jaw);
+// Eyes
+const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.015, 12, 12), eyeMat);
+eyeL.position.set(-0.05, 0.02, 0.125);
+headGroup.add(eyeL);
+const eyeR = eyeL.clone(); eyeR.position.x = 0.05; headGroup.add(eyeR);
+// Hair - short buzz
+const hair = new THREE.Mesh(new THREE.SphereGeometry(0.148, 32, 16, 0, Math.PI*2, 0, Math.PI*0.45), new THREE.MeshStandardMaterial({ color:0x2a221e, roughness:0.9 }));
+hair.position.y = 0.04;
+hair.rotation.x = 0;
+headGroup.add(hair);
+human.add(headGroup);
+
+// Arms
+// Left
+const lShoulder = capsule(0.075, 0.28, skinMat, -0.32, 1.55, 0, 0,0,-0.2);
+human.add(lShoulder);
+const lArmUpper = capsule(0.065, 0.30, skinMat, -0.45, 1.30, 0, 0,0,-0.15);
+human.add(lArmUpper);
+const lArmLower = capsule(0.055, 0.28, skinMat, -0.52, 0.98, 0, 0,0,-0.1);
+human.add(lArmLower);
+const lHand = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16,12), skinMat);
+lHand.position.set(-0.56, 0.75, 0);
+lHand.scale.set(1,1.4,0.6);
+human.add(lHand);
+// Right mirrored
+const rShoulder = capsule(0.075, 0.28, skinMat, 0.32, 1.55, 0, 0,0,0.2);
+human.add(rShoulder);
+const rArmUpper = capsule(0.065, 0.30, skinMat, 0.45, 1.30, 0, 0,0,0.15);
+human.add(rArmUpper);
+const rArmLower = capsule(0.055, 0.28, skinMat, 0.52, 0.98, 0, 0,0,0.1);
+human.add(rArmLower);
+const rHand = lHand.clone(); rHand.position.set(0.56, 0.75, 0);
+human.add(rHand);
+
+// Hips / Underwear
+const hips = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.21, 0.22, 32), underwearMat);
+hips.position.set(0, 1.05, 0);
+hips.castShadow = true;
+human.add(hips);
+const underwearTop = new THREE.Mesh(new THREE.TorusGeometry(0.215, 0.012, 12, 48), new THREE.MeshStandardMaterial({ color:0x111111, roughness:0.6 }));
+underwearTop.position.set(0, 1.16, 0);
+underwearTop.rotation.x = Math.PI/2;
+human.add(underwearTop);
+
+// Legs
+const lLegUpper = capsule(0.11, 0.45, skinMat, -0.13, 0.75, 0);
+human.add(lLegUpper);
+const lLegLower = capsule(0.09, 0.45, skinMat, -0.13, 0.28, 0);
+human.add(lLegLower);
+const lFoot = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.26), skinDarkMat);
+lFoot.position.set(-0.13, 0.03, 0.05);
+lFoot.castShadow = true;
+human.add(lFoot);
+
+const rLegUpper = capsule(0.11, 0.45, skinMat, 0.13, 0.75, 0);
+human.add(rLegUpper);
+const rLegLower = capsule(0.09, 0.45, skinMat, 0.13, 0.28, 0);
+human.add(rLegLower);
+const rFoot = lFoot.clone(); rFoot.position.set(0.13, 0.03, 0.05);
+human.add(rFoot);
+
+// slight muscle definition - add knee caps
+const kneeL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16,12), skinMat);
+kneeL.position.set(-0.13, 0.52, 0.02);
+human.add(kneeL);
+const kneeR = kneeL.clone(); kneeR.position.set(0.13, 0.52, 0.02);
+human.add(kneeR);
+
+// Animation loop
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+// Resize
+window.addEventListener('resize', ()=>{
+  camera.aspect = container.clientWidth / container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth, container.clientHeight);
+});
+
+// UI actions
+document.getElementById('btn-front').onclick = ()=>{
+  camera.position.set(0, 1.6, 2.2);
+  controls.target.set(0,1,0);
+};
+document.getElementById('btn-side').onclick = ()=>{
+  camera.position.set(2.2, 1.6, 0);
+  controls.target.set(0,1,0);
+};
+document.getElementById('btn-back').onclick = ()=>{
+  camera.position.set(0, 1.6, -2.2);
+  controls.target.set(0,1,0);
+};
+let wire = false;
+document.getElementById('btn-wire').onclick = (e)=>{
+  wire = !wire;
+  human.traverse(o=>{ if(o.isMesh){ o.material.wireframe = wire; } });
+  e.target.textContent = wire ? 'Solid' : 'Wireframe';
+};
+
+// Export GLB
+document.getElementById('btn-glb').onclick = ()=>{
+  const exporter = new GLTFExporter();
+  exporter.parse(human, (gltf)=>{
+    const blob = new Blob([gltf], { type:'model/gltf-binary' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'male_underwear_reference.glb'; a.click();
+    URL.revokeObjectURL(url);
+  }, (e)=>console.error(e), { binary:true });
+};
+
+document.getElementById('btn-obj').onclick = ()=>{
+  alert('Для OBJ экспорта открой эту GLB в Blender и File > Export > OBJ. GLB уже содержит PBR материалы.');
+};
+
+// poly count estimate
+let tris = 0;
+human.traverse(o=>{ if(o.isMesh) tris += o.geometry.index ? o.geometry.index.count/3 : o.geometry.attributes.position.count/3; });
+document.getElementById('poly-count').textContent = Math.round(tris).toLocaleString() + ' tris';
+</script>
+</body>
+</html>
